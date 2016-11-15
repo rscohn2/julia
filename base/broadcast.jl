@@ -13,7 +13,7 @@ export broadcast_getindex, broadcast_setindex!
 
 # fallbacks for some special cases
 @inline broadcast(f, x::Number...) = f(x...)
-@inline broadcast{N}(f, t::NTuple{N}, ts::Vararg{NTuple{N}}) = map(f, t, ts...)
+@inline broadcast{N}(f, t::NTuple{N,Any}, ts::Vararg{NTuple{N,Any}}) = map(f, t, ts...)
 @inline broadcast(f, As::AbstractArray...) = broadcast_c(f, Array, As...)
 
 # special cases for "X .= ..." (broadcast!) assignments
