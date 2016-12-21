@@ -375,7 +375,7 @@ end
 ## string map, filter, has ##
 
 function map(f, s::AbstractString)
-    out = IOBuffer(Array{UInt8}(endof(s)),true,true)
+    out = IOBuffer(StringVector(endof(s)),true,true)
     truncate(out,0)
     for c in s
         c2 = f(c)
@@ -388,7 +388,7 @@ function map(f, s::AbstractString)
 end
 
 function filter(f, s::AbstractString)
-    out = IOBuffer(Array{UInt8}(endof(s)),true,true)
+    out = IOBuffer(StringVector(endof(s)),true,true)
     truncate(out,0)
     for c in s
         if f(c)

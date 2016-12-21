@@ -22,6 +22,9 @@ typealias IOBuffer AbstractIOBuffer{Vector{UInt8}}
 AbstractIOBuffer{T<:AbstractVector{UInt8}}(data::T, readable::Bool, writable::Bool, seekable::Bool, append::Bool, maxsize::Int) =
     AbstractIOBuffer{T}(data, readable, writable, seekable, append, maxsize)
 
+# allocate Vector{UInt8}s for IOBuffer storage that can efficiently become Strings
+StringVector(n::Integer) = Vector{UInt8}(_string_n(n))
+
 # IOBuffers behave like Files. They are typically readable and writable. They are seekable. (They can be appendable).
 
 """
@@ -48,7 +51,7 @@ IOBuffer() = IOBuffer(true, true)
 
 Create a fixed size IOBuffer. The buffer will not grow dynamically.
 """
-IOBuffer(maxsize::Int) = (x=IOBuffer(Array{UInt8}(maxsize), true, true, maxsize); x.size=0; x)
+IOBuffer(maxsize::Int) = (x=IOBuffer(StringVector(maxsize), true, true, maxsize); x.size=0; x)
 
 # PipeBuffers behave like Unix Pipes. They are typically readable and writable, they act appendable, and are not seekable.
 
@@ -63,7 +66,7 @@ optionally specifying a size beyond which the underlying `Array` may not be grow
 """
 PipeBuffer(data::Vector{UInt8}=UInt8[], maxsize::Int=typemax(Int)) =
     AbstractIOBuffer(data,true,true,false,true,maxsize)
-PipeBuffer(maxsize::Int) = (x = PipeBuffer(Array{UInt8}(maxsize),maxsize); x.size=0; x)
+PipeBuffer(maxsize::Int) = (x = PipeBuffer(Vector{UInt8}(maxsize),maxsize); x.size=0; x)
 
 function copy(b::AbstractIOBuffer)
     ret = typeof(b)(b.writable ? copy(b.data) : b.data,
@@ -263,10 +266,10 @@ function take!(io::AbstractIOBuffer)
     ismarked(io) && unmark(io)
     if io.seekable
         nbytes = io.size
-        data = copy!(Array{UInt8}(nbytes), 1, io.data, 1, nbytes)
+        data = copy!(StringVector(nbytes), 1, io.data, 1, nbytes)
     else
         nbytes = nb_available(io)
-        data = read!(io,Array{UInt8}(nbytes))
+        data = read!(io,StringVector(nbytes))
     end
     if io.writable
         io.ptr = 1
@@ -280,14 +283,14 @@ function take!(io::IOBuffer)
         data = io.data
         if io.writable
             maxsize = (io.maxsize == typemax(Int) ? 0 : min(length(io.data),io.maxsize))
-            io.data = Array{UInt8}(maxsize)
+            io.data = StringVector(maxsize)
         else
             data = copy(data)
         end
         resize!(data,io.size)
     else
         nbytes = nb_available(io)
-        a = Array{UInt8}(nbytes)
+        a = StringVector(nbytes)
         data = read!(io, a)
     end
     if io.writable
@@ -381,7 +384,7 @@ end
 
 function readuntil(io::AbstractIOBuffer, delim::UInt8)
     lb = 70
-    A = Array{UInt8}(lb)
+    A = StringVector(lb)
     n = 0
     data = io.data
     for i = io.ptr : io.size

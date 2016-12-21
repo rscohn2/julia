@@ -75,7 +75,7 @@ tostr_sizehint(x::Float32) = 12
 
 function print_to_string(xs...; env=nothing)
     # specialized for performance reasons
-    s = IOBuffer(Array{UInt8}(tostr_sizehint(xs[1])), true, true)
+    s = IOBuffer(StringVector(tostr_sizehint(xs[1])), true, true)
     # specialized version of truncate(s,0)
     s.size = 0
     s.ptr = 1
@@ -345,7 +345,7 @@ function unindent(str::AbstractString, indent::Int; tabwidth=8)
     pos = start(str)
     endpos = endof(str)
     # Note: this loses the type of the original string
-    buf = IOBuffer(Array{UInt8}(endpos), true, true)
+    buf = IOBuffer(StringVector(endpos), true, true)
     truncate(buf,0)
     cutting = true
     col = 0     # current column (0 based)

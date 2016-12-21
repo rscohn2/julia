@@ -37,7 +37,7 @@ STATIC_INLINE jl_value_t *jl_array_owner(jl_array_t *a)
 {
     if (a->flags.how == 3) {
         a = (jl_array_t*)jl_array_data_owner(a);
-        assert(a->flags.how != 3);
+        assert(jl_is_string(a) || a->flags.how != 3);
     }
     return (jl_value_t*)a;
 }
@@ -96,9 +96,8 @@ static jl_array_t *_new_array_(jl_value_t *atype, uint32_t ndims, size_t *dims,
         // No allocation or safepoint allowed after this
         a->flags.how = 0;
         data = (char*)a + doffs;
-        if (tot > 0 && !isunboxed) {
+        if (tot > 0 && !isunboxed)
             memset(data, 0, tot);
-        }
     }
     else {
         tsz = JL_ARRAY_ALIGN(tsz, JL_CACHE_BYTE_ALIGNMENT); // align whole object
@@ -232,6 +231,32 @@ JL_DLLEXPORT jl_array_t *jl_reshape_array(jl_value_t *atype, jl_array_t *data,
 #endif
     }
 
+    return a;
+}
+
+JL_DLLEXPORT jl_array_t *jl_string_to_array(jl_value_t *str)
+{
+    jl_ptls_t ptls = jl_get_ptls_states();
+    jl_array_t *a;
+
+    int ndimwords = jl_array_ndimwords(1);
+    int tsz = JL_ARRAY_ALIGN(sizeof(jl_array_t) + ndimwords*sizeof(size_t) + sizeof(void*), JL_SMALL_BYTE_ALIGNMENT);
+    a = (jl_array_t*)jl_gc_alloc(ptls, tsz, jl_array_uint8_type);
+    a->flags.pooled = tsz <= GC_MAX_SZCLASS;
+    a->flags.ndims = 1;
+    a->offset = 0;
+    a->data = jl_string_data(str);
+    a->flags.isaligned = 0;
+    a->elsize = 1;
+    a->flags.ptrarray = 0;
+    jl_array_data_owner(a) = str;
+    a->flags.how = 3;
+    a->flags.isshared = 0;
+    size_t l = jl_string_len(str);
+#ifdef STORE_ARRAY_LEN
+    a->length = l;
+#endif
+    a->nrows = a->maxsize = l;
     return a;
 }
 
@@ -369,7 +394,16 @@ JL_DLLEXPORT jl_array_t *jl_pchar_to_array(const char *str, size_t len)
 
 JL_DLLEXPORT jl_value_t *jl_array_to_string(jl_array_t *a)
 {
-    return jl_pchar_to_string(jl_array_data(a), jl_array_len(a));
+    if (a->flags.how == 3 && a->offset == 0 && a->elsize == 1 &&
+        (jl_array_ndims(a) != 1 ||
+         !(a->maxsize+sizeof(void*)+1 > GC_MAX_SZCLASS && jl_array_nrows(a)+sizeof(void*)+1 <= GC_MAX_SZCLASS))) {
+        jl_value_t *o = jl_array_data_owner(a);
+        if (jl_is_string(o)) {
+            *(size_t*)o = jl_array_len(a);
+            return o;
+        }
+    }
+    return jl_pchar_to_string((const char*)jl_array_data(a), jl_array_len(a));
 }
 
 JL_DLLEXPORT jl_value_t *jl_pchar_to_string(const char *str, size_t len)
@@ -597,7 +631,14 @@ static int NOINLINE array_resize_buffer(jl_array_t *a, size_t newlen)
     }
     else {
         newbuf = 1;
-        if (
+        if (a->flags.how == 3 && jl_is_string(jl_array_data_owner(a))) {
+            // if data is in a String, keep it that way
+            jl_value_t *s = jl_alloc_string(nbytes);
+            jl_array_data_owner(a) = s;
+            jl_gc_wb(a, s);
+            a->data = jl_string_data(s);
+        }
+        else if (
 #ifdef _P64
             nbytes >= MALLOC_THRESH
 #else
@@ -1041,6 +1082,7 @@ STATIC_INLINE int jl_has_implicit_byte(jl_array_t *a)
     //     We should check the owner.
     if (a->flags.how == 3) {
         a = (jl_array_t*)jl_array_data_owner(a);
+        if (jl_is_string(a)) return 1;
         return a->elsize == 1 && jl_has_implicit_byte_owned(a);
     }
     return jl_has_implicit_byte_owned(a);
