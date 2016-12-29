@@ -194,7 +194,7 @@ end
 
 function showerror(io::IO, ex, bt; backtrace=true)
     # List of exceptions for which backtraces are not printed
-    no_bt_list = [Base.Test.TestSetException]
+    no_bt_list = [Base.Test.TestSetException, Base.Pkg.Entry.PkgTestError]
     try
         showerror(io, ex)
     finally
