@@ -193,10 +193,12 @@ function showerror(io::IO, ex::TypeError)
 end
 
 function showerror(io::IO, ex, bt; backtrace=true)
+    # List of exceptions for which backtraces are not printed
+    no_bt_list = [Base.Test.TestSetException]
     try
         showerror(io, ex)
     finally
-        backtrace && show_backtrace(io, bt)
+        backtrace && !(typeof(ex) in no_bt_list) && show_backtrace(io, bt)
     end
 end
 
