@@ -735,9 +735,8 @@ type PkgTestError <: Exception
     msg::String
 end
 
-function Base.showerror(io::IO, pkgerr::PkgTestError)
-    print(io, pkgerr.msg)
-end
+Base.show(io::IO, pkgerr::PkgTestError) = print(io, pkgerr.msg)
+Base.showerror(io::IO, ex::PkgTestError, bt; backtrace=true) = Base.showerror(io, ex)
 
 function test(pkgs::Vector{AbstractString}; coverage::Bool=false)
     errs = AbstractString[]

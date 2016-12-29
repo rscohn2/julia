@@ -382,6 +382,8 @@ function Base.show(io::IO, ex::TestSetException)
     print(io, ex.broken, " broken.")
 end
 
+Base.showerror(io::IO, ex::TestSetException, bt; backtrace=true) = show(io, ex)
+
 #-----------------------------------------------------------------------
 
 """
