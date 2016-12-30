@@ -561,3 +561,9 @@ temp_pkg_dir() do
         @test contains(msg, "- $package\nRestart Julia to use the updated versions.")
     end
 end
+
+let
+    io = IOBuffer()
+    Base.showerror(io, Base.Pkg.Entry.PkgTestError("ppp"), backtrace())
+    @test !contains(String(take!(io))), "backtrace()")
+end

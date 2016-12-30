@@ -395,3 +395,9 @@ end
 end
 @test_throws ErrorException @testset "$(error())" begin
 end
+
+let
+    io = IOBuffer()
+    Base.showerror(io, Test.TestSetException(1,2,3,4,Vector{Union{Base.Test.Error, Base.Test.Fail}}()), backtrace())
+    @test !contains(String(take!(io)), "backtrace()")
+end
